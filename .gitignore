@@ -1,6 +1,0 @@
-*.tfstate
-.terraform/
-*.zip
-*.log
-*.pem
-terraform.tfvars
