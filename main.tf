@@ -5,7 +5,7 @@ provider "aws" {
 }
 
 resource "aws_iam_role" "lambda_exec_role" {
-  name = "lambda_exec_role_gary_yunganina_v2"
+  name = "lambda_exec_role_gary_yunganina_v3"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -20,7 +20,7 @@ resource "aws_iam_role" "lambda_exec_role" {
 }
 
 resource "aws_iam_policy" "lambda_s3_policy" {
-  name = "lambda_s3_read_policy_v2"  # o el nombre que estés usando
+  name = "lambda_s3_read_policy_v3"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -28,12 +28,12 @@ resource "aws_iam_policy" "lambda_s3_policy" {
       {
         Effect   = "Allow",
         Action   = [
-          "s3:ListBucket",     # 🔥 AÑADIDO
+          "s3:ListBucket",
           "s3:GetObject"
         ],
         Resource = [
-          "arn:aws:s3:::${var.bucket_name}",        # para ListBucket
-          "arn:aws:s3:::${var.bucket_name}/*"       # para GetObject
+          "arn:aws:s3:::${var.bucket_name}",
+          "arn:aws:s3:::${var.bucket_name}/*"
         ]
       }
     ]
