@@ -1,0 +1,5 @@
+aws_access_key_id     = "AKIA4SZHN2S4ZKFNHZ74"
+aws_secret_access_key = "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"
+aws_region            = "us-east-1"
+bucket_name           = "bucket-lambda-s3-fegf"
+function_name         = "lambda-s3-fegf"
