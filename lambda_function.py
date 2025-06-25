@@ -18,8 +18,7 @@ def lambda_handler(event, context):
         archivo_procesado = {
             "archivo": nombre,
             "estado": "procesado",
-            "archivo_corregido": f"corregido_{nombre.replace('.csv', '.json')}",
-            "archivo_con_errores": f"errores_{nombre.replace('.csv', '.json')}",
+            "archivo_corregido": f"{nombre.replace('.csv', '.json')}",
             "filas_exitosas": [],
             "filas_con_error": []
         }
@@ -36,53 +35,33 @@ def lambda_handler(event, context):
             filas_corregidas = []
             filas_errores = []
 
-            fragmento_size = 2000  # Definir el tamaño de fragmento (2,000 filas)
-            filas = []
-            fila_num = 2  # Comenzamos desde la fila 2 (después del encabezado)
+            for fila_num, fila in enumerate(csv_reader, start=2):  # Comenzamos desde la fila 2 (después del encabezado)
+                # Validamos si la fila tiene el número correcto de columnas
+                if len(fila) != len(encabezado):
+                    filas_errores.append({
+                        "fila": fila_num,
+                        "contenido": fila,
+                        "error": "Número de columnas incorrecto"
+                    })
+                # Validamos si hay valores faltantes en la fila
+                elif any(not valor for valor in fila):
+                    filas_errores.append({
+                        "fila": fila_num,
+                        "contenido": fila,
+                        "error": "Valores faltantes"
+                    })
+                else:
+                    # Si la fila está correcta, la agregamos a las filas corregidas
+                    filas_corregidas.append(fila)
 
-            for fila in csv_reader:
-                if len(filas) >= fragmento_size:
-                    # Procesar el fragmento actual (2,000 filas)
-                    for f in filas:
-                        if len(f) != len(encabezado):
-                            filas_errores.append({"fila": fila_num, "contenido": f, "error": "Número de columnas incorrecto"})
-                        elif any(not valor for valor in f):
-                            filas_errores.append({"fila": fila_num, "contenido": f, "error": "Valores faltantes"})
-                        else:
-                            filas_corregidas.append(f)
-                        fila_num += 1
-                    
-                    # Limpiar la lista de filas para el siguiente fragmento
-                    filas = []
-
-                filas.append(fila)
-
-            # Procesar el último fragmento si tiene menos de 2,000 filas
-            if filas:
-                for f in filas:
-                    if len(f) != len(encabezado):
-                        filas_errores.append({"fila": fila_num, "contenido": f, "error": "Número de columnas incorrecto"})
-                    elif any(not valor for valor in f):
-                        filas_errores.append({"fila": fila_num, "contenido": f, "error": "Valores faltantes"})
-                    else:
-                        filas_corregidas.append(f)
-                    fila_num += 1
-
-            # Convertir las filas corregidas y con errores a JSON y subir a S3
+            # Convertir las filas corregidas a JSON
             archivo_corregido_json = json.dumps(filas_corregidas, indent=2)
-            archivo_errores_json = json.dumps(filas_errores, indent=2)
 
-            # Subir archivos corregidos y con errores a S3 en formato JSON
+            # Subir el archivo corregido a S3 en formato JSON (con el mismo nombre pero extensión .json)
             s3.put_object(
                 Bucket=bucket,
-                Key=f"corregidos/{archivo_procesado['archivo_corregido']}",
+                Key=f"{archivo_procesado['archivo_corregido']}",
                 Body=archivo_corregido_json
-            )
-
-            s3.put_object(
-                Bucket=bucket,
-                Key=f"errores/{archivo_procesado['archivo_con_errores']}",
-                Body=archivo_errores_json
             )
 
             archivo_procesado["filas_exitosas"] = filas_corregidas
@@ -94,7 +73,6 @@ def lambda_handler(event, context):
         
         resultado.append(archivo_procesado)
 
-    # Solo devolver un resumen con los nombres de los archivos y su estado
     return {
         "statusCode": 200,
         "body": json.dumps({"resultados": resultado}, indent=2)  # Solo el resumen del estado
