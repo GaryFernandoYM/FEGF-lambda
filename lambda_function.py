@@ -7,7 +7,6 @@ def lambda_handler(event, context):
     bucket = os.environ['BUCKET_NAME']
     s3 = boto3.client('s3')
 
-    # Lista de archivos en el bucket
     archivos = s3.list_objects_v2(Bucket=bucket).get('Contents', [])
 
     resultado = []
@@ -23,26 +22,22 @@ def lambda_handler(event, context):
         }
 
         try:
-            # Obtener el archivo CSV desde S3 con codificación ISO-8859-1
             s3_object = s3.get_object(Bucket=bucket, Key=nombre)
             archivo_csv = s3_object['Body'].read().decode('ISO-8859-1').splitlines()
             
-            # Leer el archivo CSV línea por línea
             csv_reader = csv.reader(archivo_csv)
-            encabezado = next(csv_reader)  # Obtener el encabezado (si lo tiene)
+            encabezado = next(csv_reader)
             
             filas_corregidas = []
             filas_errores = []
 
-            for fila_num, fila in enumerate(csv_reader, start=2):  # Comenzamos desde la fila 2 (después del encabezado)
-                # Validamos si la fila tiene el número correcto de columnas
+            for fila_num, fila in enumerate(csv_reader, start=2):
                 if len(fila) != len(encabezado):
                     filas_errores.append({
                         "fila": fila_num,
                         "contenido": fila,
                         "error": "Número de columnas incorrecto"
                     })
-                # Validamos si hay valores faltantes en la fila
                 elif any(not valor for valor in fila):
                     filas_errores.append({
                         "fila": fila_num,
@@ -50,13 +45,11 @@ def lambda_handler(event, context):
                         "error": "Valores faltantes"
                     })
                 else:
-                    # Si la fila está correcta, la agregamos a las filas corregidas
+        
                     filas_corregidas.append(fila)
 
-            # Convertir las filas corregidas a JSON
             archivo_corregido_json = json.dumps(filas_corregidas, indent=2)
 
-            # Subir el archivo corregido a S3 en formato JSON (con el mismo nombre pero extensión .json)
             s3.put_object(
                 Bucket=bucket,
                 Key=f"{archivo_procesado['archivo_corregido']}",
@@ -72,15 +65,14 @@ def lambda_handler(event, context):
         
         resultado.append(archivo_procesado)
 
-    # Guardar el resumen final de los resultados en un archivo JSON
     resumen_resultados = json.dumps({"resultados": resultado}, indent=2)
     s3.put_object(
         Bucket=bucket,
-        Key='resumen_resultados.json',  # Nombre del archivo resumen
+        Key='resumen_resultados.json',
         Body=resumen_resultados
     )
 
     return {
         "statusCode": 200,
-        "body": resumen_resultados  # Solo el resumen del estado
+        "body": resumen_resultados
     }
