@@ -18,8 +18,8 @@ def lambda_handler(event, context):
         archivo_procesado = {
             "archivo": nombre,
             "estado": "procesado",
-            "archivo_corregido": f"corregido_{nombre}",
-            "archivo_con_errores": f"errores_{nombre}",
+            "archivo_corregido": f"corregido_{nombre.replace('.csv', '.json')}",
+            "archivo_con_errores": f"errores_{nombre.replace('.csv', '.json')}",
             "filas_exitosas": [],
             "filas_con_error": []
         }
@@ -36,50 +36,53 @@ def lambda_handler(event, context):
             filas_corregidas = []
             filas_errores = []
 
-            for fila_num, fila in enumerate(csv_reader, start=2):  # Empezamos desde la fila 2 (por el encabezado)
-                if len(fila) != len(encabezado):  # Si la fila tiene un número diferente de columnas, es incorrecta
-                    filas_errores.append({
-                        "fila": fila_num,
-                        "contenido": fila,
-                        "error": "Número de columnas incorrecto"
-                    })
-                else:
-                    # Validamos si hay valores faltantes
-                    if any(not valor for valor in fila):  # Si hay algún campo vacío
-                        filas_errores.append({
-                            "fila": fila_num,
-                            "contenido": fila,
-                            "error": "Valores faltantes"
-                        })
+            fragmento_size = 2000  # Definir el tamaño de fragmento (2,000 filas)
+            filas = []
+            fila_num = 2  # Comenzamos desde la fila 2 (después del encabezado)
+
+            for fila in csv_reader:
+                if len(filas) >= fragmento_size:
+                    # Procesar el fragmento actual (2,000 filas)
+                    for f in filas:
+                        if len(f) != len(encabezado):
+                            filas_errores.append({"fila": fila_num, "contenido": f, "error": "Número de columnas incorrecto"})
+                        elif any(not valor for valor in f):
+                            filas_errores.append({"fila": fila_num, "contenido": f, "error": "Valores faltantes"})
+                        else:
+                            filas_corregidas.append(f)
+                        fila_num += 1
+                    
+                    # Limpiar la lista de filas para el siguiente fragmento
+                    filas = []
+
+                filas.append(fila)
+
+            # Procesar el último fragmento si tiene menos de 2,000 filas
+            if filas:
+                for f in filas:
+                    if len(f) != len(encabezado):
+                        filas_errores.append({"fila": fila_num, "contenido": f, "error": "Número de columnas incorrecto"})
+                    elif any(not valor for valor in f):
+                        filas_errores.append({"fila": fila_num, "contenido": f, "error": "Valores faltantes"})
                     else:
-                        # Si la fila está bien, la agregamos a las filas corregidas
-                        filas_corregidas.append(fila)
+                        filas_corregidas.append(f)
+                    fila_num += 1
 
-            # Escribir archivo corregido y con errores en memoria
-            output_corregido = io.StringIO()
-            output_errores = io.StringIO()
-            writer_corregido = csv.writer(output_corregido)
-            writer_errores = csv.writer(output_errores)
+            # Convertir las filas corregidas y con errores a JSON
+            archivo_corregido_json = json.dumps(filas_corregidas, indent=2)
+            archivo_errores_json = json.dumps(filas_errores, indent=2)
 
-            # Escribir encabezado
-            writer_corregido.writerow(encabezado)
-            writer_errores.writerow(encabezado)
-
-            # Escribir las filas corregidas y con errores
-            writer_corregido.writerows(filas_corregidas)
-            writer_errores.writerows(filas_errores)
-
-            # Subir archivos corregidos y con errores a S3
+            # Subir archivos corregidos y con errores a S3 en formato JSON
             s3.put_object(
                 Bucket=bucket,
                 Key=f"corregidos/{archivo_procesado['archivo_corregido']}",
-                Body=output_corregido.getvalue()
+                Body=archivo_corregido_json
             )
 
             s3.put_object(
                 Bucket=bucket,
                 Key=f"errores/{archivo_procesado['archivo_con_errores']}",
-                Body=output_errores.getvalue()
+                Body=archivo_errores_json
             )
 
             archivo_procesado["filas_exitosas"] = filas_corregidas
