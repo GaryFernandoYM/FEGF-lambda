@@ -68,7 +68,7 @@ def lambda_handler(event, context):
                         filas_corregidas.append(f)
                     fila_num += 1
 
-            # Convertir las filas corregidas y con errores a JSON
+            # Convertir las filas corregidas y con errores a JSON y subir a S3
             archivo_corregido_json = json.dumps(filas_corregidas, indent=2)
             archivo_errores_json = json.dumps(filas_errores, indent=2)
 
@@ -94,7 +94,8 @@ def lambda_handler(event, context):
         
         resultado.append(archivo_procesado)
 
+    # Solo devolver un resumen con los nombres de los archivos y su estado
     return {
         "statusCode": 200,
-        "body": json.dumps(resultado, indent=2)  # Formato JSON bonito
+        "body": json.dumps({"resultados": resultado}, indent=2)  # Solo el resumen del estado
     }
