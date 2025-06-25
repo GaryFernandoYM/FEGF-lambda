@@ -25,9 +25,9 @@ def lambda_handler(event, context):
         }
 
         try:
-            # Obtener el archivo CSV desde S3
+            # Obtener el archivo CSV desde S3 con codificación ISO-8859-1
             s3_object = s3.get_object(Bucket=bucket, Key=nombre)
-            archivo_csv = s3_object['Body'].read().decode('utf-8').splitlines()
+            archivo_csv = s3_object['Body'].read().decode('ISO-8859-1').splitlines()
             
             # Leer el archivo CSV línea por línea
             csv_reader = csv.reader(archivo_csv)
