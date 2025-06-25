@@ -2,7 +2,6 @@ import json
 import boto3
 import os
 import csv
-import io
 
 def lambda_handler(event, context):
     bucket = os.environ['BUCKET_NAME']
@@ -73,7 +72,15 @@ def lambda_handler(event, context):
         
         resultado.append(archivo_procesado)
 
+    # Guardar el resumen final de los resultados en un archivo JSON
+    resumen_resultados = json.dumps({"resultados": resultado}, indent=2)
+    s3.put_object(
+        Bucket=bucket,
+        Key='resumen_resultados.json',  # Nombre del archivo resumen
+        Body=resumen_resultados
+    )
+
     return {
         "statusCode": 200,
-        "body": json.dumps({"resultados": resultado}, indent=2)  # Solo el resumen del estado
+        "body": resumen_resultados  # Solo el resumen del estado
     }
