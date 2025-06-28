@@ -2,6 +2,7 @@ import json
 import boto3
 import os
 import csv
+from datetime import datetime
 
 def lambda_handler(event, context):
     bucket = os.environ['BUCKET_NAME']
@@ -13,6 +14,9 @@ def lambda_handler(event, context):
 
     for archivo in archivos:
         nombre = archivo['Key']
+        if not nombre.endswith('.csv'):
+            continue  # Solo procesar archivos CSV
+
         archivo_procesado = {
             "archivo": nombre,
             "estado": "procesado",
@@ -24,35 +28,97 @@ def lambda_handler(event, context):
         try:
             s3_object = s3.get_object(Bucket=bucket, Key=nombre)
             archivo_csv = s3_object['Body'].read().decode('ISO-8859-1').splitlines()
-            
-            csv_reader = csv.reader(archivo_csv)
-            encabezado = next(csv_reader)
-            
+            csv_reader = csv.DictReader(archivo_csv)
+
             filas_corregidas = []
             filas_errores = []
 
-            for fila_num, fila in enumerate(csv_reader, start=2):
-                if len(fila) != len(encabezado):
+            for num_fila, fila in enumerate(csv_reader, start=2):
+                errores = []
+
+                try:
+                    # Reglas de validación
+                    if not fila['id']:
+                        errores.append("ID vacío")
+
+                    if fila['date']:
+                        try:
+                            datetime.strptime(fila['date'][:8], '%Y%m%d')
+                        except:
+                            errores.append("Fecha inválida")
+                    else:
+                        errores.append("Fecha vacía")
+
+                    if float(fila['price']) <= 0:
+                        errores.append("Precio inválido")
+
+                    if not (1 <= int(fila['bedrooms']) < 15):
+                        errores.append("Número de dormitorios inválido")
+
+                    if not (0.5 <= float(fila['bathrooms']) < 10):
+                        errores.append("Número de baños inválido")
+
+                    if int(fila['sqft_living']) <= 100:
+                        errores.append("Área habitable inválida")
+
+                    if int(fila['sqft_lot']) <= 0:
+                        errores.append("Área del lote inválida")
+
+                    if not (1 <= float(fila['floors']) <= 4):
+                        errores.append("Número de pisos inválido")
+
+                    if int(fila['waterfront']) not in (0, 1):
+                        errores.append("Valor de waterfront inválido")
+
+                    if not (0 <= int(fila['view']) <= 4):
+                        errores.append("Valor de vista inválido")
+
+                    if not (1 <= int(fila['condition']) <= 5):
+                        errores.append("Condición inválida")
+
+                    if not (1 <= int(fila['grade']) <= 13):
+                        errores.append("Grado inválido")
+
+                    if int(fila['sqft_above']) > int(fila['sqft_living']):
+                        errores.append("Área sobre terreno > área habitable")
+
+                    if int(fila['sqft_basement']) > int(fila['sqft_living']):
+                        errores.append("Área de sótano > área habitable")
+
+                    if not (1900 <= int(fila['yr_built']) <= 2025):
+                        errores.append("Año de construcción inválido")
+
+                    if int(fila['yr_renovated']) not in (0,) and int(fila['yr_renovated']) < int(fila['yr_built']):
+                        errores.append("Renovación antes del año de construcción")
+
+                    if len(fila['zipcode']) != 5:
+                        errores.append("Código postal inválido")
+
+                    if not (47.1 <= float(fila['lat']) <= 47.8):
+                        errores.append("Latitud fuera de rango")
+
+                    if not (-122.5 <= float(fila['long']) <= -121.3):
+                        errores.append("Longitud fuera de rango")
+
+                    if int(fila['sqft_living15']) <= 0 or int(fila['sqft_lot15']) <= 0:
+                        errores.append("Valores comparativos de tamaño inválidos")
+
+                except Exception as e:
+                    errores.append(f"Error inesperado: {str(e)}")
+
+                if errores:
                     filas_errores.append({
-                        "fila": fila_num,
+                        "fila": num_fila,
                         "contenido": fila,
-                        "error": "Número de columnas incorrecto"
-                    })
-                elif any(not valor for valor in fila):
-                    filas_errores.append({
-                        "fila": fila_num,
-                        "contenido": fila,
-                        "error": "Valores faltantes"
+                        "errores": errores
                     })
                 else:
-        
                     filas_corregidas.append(fila)
 
             archivo_corregido_json = json.dumps(filas_corregidas, indent=2)
-
             s3.put_object(
                 Bucket=bucket,
-                Key=f"{archivo_procesado['archivo_corregido']}",
+                Key=archivo_procesado["archivo_corregido"],
                 Body=archivo_corregido_json
             )
 
@@ -62,17 +128,10 @@ def lambda_handler(event, context):
         except Exception as e:
             archivo_procesado["estado"] = "fallido"
             archivo_procesado["error"] = str(e)
-        
-        resultado.append(archivo_procesado)
 
-    resumen_resultados = json.dumps({"resultados": resultado}, indent=2)
-    s3.put_object(
-        Bucket=bucket,
-        Key='resumen_resultados.json',
-        Body=resumen_resultados
-    )
+        resultado.append(archivo_procesado)
 
     return {
         "statusCode": 200,
-        "body": resumen_resultados
+        "body": json.dumps(resultado, indent=2)
     }
