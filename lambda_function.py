@@ -15,7 +15,7 @@ def lambda_handler(event, context):
     for archivo in archivos:
         nombre = archivo['Key']
         if not nombre.endswith('.csv'):
-            continue  # Solo procesar archivos CSV
+            continue 
 
         archivo_procesado = {
             "archivo": nombre,
@@ -37,7 +37,7 @@ def lambda_handler(event, context):
                 errores = []
 
                 try:
-                    # Reglas de validación
+                    
                     if not fila['id']:
                         errores.append("ID vacío")
 
