@@ -26,28 +26,7 @@ resource "aws_iam_policy_attachment" "lambda_s3_policy_attach" {
   roles      = ["lambda_exec_role_yes"]
   policy_arn = data.aws_iam_policy.lambda_s3_policy.arn
 }
-resource "aws_iam_policy" "lambda_s3_target_bucket" {
-  name        = "lambda_s3_target_bucket_policy"
-  description = "Permite a Lambda comprobar y crear el bucket de destino, y escribir en él"
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = [
-          "s3:HeadBucket",
-          "s3:CreateBucket",
-          "s3:PutObject",
-          "s3:PutObjectAcl"
-        ]
-        Resource = [
-          "arn:aws:s3:::${var.corrected_bucket_name}",
-          "arn:aws:s3:::${var.corrected_bucket_name}/*"
-        ]
-      }
-    ]
-  })
-}
+
 
 resource "aws_iam_policy_attachment" "attach_s3_target_bucket" {
   name       = "lambda-attach-s3-target-bucket"
