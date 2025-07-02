@@ -22,3 +22,7 @@ variable "function_name" {
   type        = string
   description = "Nombre de la función Lambda"
 }
+variable "corrected_bucket_name" {
+  type        = string
+  description = "Nombre del bucket de S3 donde se guardan los JSON corregidos"
+}
