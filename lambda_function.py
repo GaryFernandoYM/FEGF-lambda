@@ -5,28 +5,28 @@ import csv
 from datetime import datetime
 
 def lambda_handler(event, context):
-    bucket = os.environ['BUCKET_NAME']
+    source_bucket = os.environ['SOURCE_BUCKET']
+    target_bucket = os.environ['TARGET_BUCKET']
     s3 = boto3.client('s3')
 
-    archivos = s3.list_objects_v2(Bucket=bucket).get('Contents', [])
-
+    archivos = s3.list_objects_v2(Bucket=source_bucket).get('Contents', [])
     resultado = []
 
     for archivo in archivos:
         nombre = archivo['Key']
-        if not nombre.endswith('.csv'):
-            continue 
+        if not nombre.lower().endswith('.csv'):
+            continue
 
         archivo_procesado = {
             "archivo": nombre,
             "estado": "procesado",
-            "archivo_corregido": f"{nombre.replace('.csv', '.json')}",
+            "archivo_corregido": nombre.replace('.csv', '.json'),
             "filas_exitosas": [],
             "filas_con_error": []
         }
 
         try:
-            s3_object = s3.get_object(Bucket=bucket, Key=nombre)
+            s3_object = s3.get_object(Bucket=source_bucket, Key=nombre)
             archivo_csv = s3_object['Body'].read().decode('ISO-8859-1').splitlines()
             csv_reader = csv.DictReader(archivo_csv)
 
@@ -37,7 +37,6 @@ def lambda_handler(event, context):
                 errores = []
 
                 try:
-                    
                     if not fila['id']:
                         errores.append("ID vacío")
 
@@ -116,8 +115,9 @@ def lambda_handler(event, context):
                     filas_corregidas.append(fila)
 
             archivo_corregido_json = json.dumps(filas_corregidas, indent=2)
+
             s3.put_object(
-                Bucket=bucket,
+                Bucket=target_bucket,
                 Key=archivo_procesado["archivo_corregido"],
                 Body=archivo_corregido_json
             )
@@ -130,7 +130,6 @@ def lambda_handler(event, context):
             archivo_procesado["error"] = str(e)
 
         resultado.append(archivo_procesado)
-
     return {
         "statusCode": 200,
         "body": json.dumps(resultado, indent=2)
