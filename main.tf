@@ -8,37 +8,31 @@ locals {
   existing_lambda_role_arn = "arn:aws:iam::864981734585:role/lambda_exec_role_yes"
 }
 
-# ✅ Política EXISTENTE para leer del bucket fuente
 data "aws_iam_policy" "lambda_s3_policy" {
   name = "lambda_s3_read_policy_yes"
 }
 
-# ✅ Política EXISTENTE para escribir en el bucket corregido
 data "aws_iam_policy" "lambda_s3_target_bucket" {
   name = "lambda_s3_target_bucket_policy"
 }
 
-# ✅ Adjunta política básica de logs
 resource "aws_iam_role_policy_attachment" "lambda_logs" {
   role       = "lambda_exec_role_yes"
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# ✅ Adjunta política de lectura S3
 resource "aws_iam_policy_attachment" "lambda_s3_policy_attach" {
   name       = "lambda_s3_policy_attach_yes"
   roles      = ["lambda_exec_role_yes"]
   policy_arn = data.aws_iam_policy.lambda_s3_policy.arn
 }
 
-# ✅ Adjunta política de escritura al bucket corregido
 resource "aws_iam_policy_attachment" "attach_s3_target_bucket" {
   name       = "lambda-attach-s3-target-bucket"
   roles      = ["lambda_exec_role_yes"]
   policy_arn = data.aws_iam_policy.lambda_s3_target_bucket.arn
 }
 
-# ✅ Función Lambda
 resource "aws_lambda_function" "my_lambda" {
   function_name = var.function_name
   role          = local.existing_lambda_role_arn
